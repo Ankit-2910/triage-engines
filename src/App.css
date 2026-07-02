@@ -1,0 +1,6 @@
+.app-container{min-height:100vh;background:#0f0f0f;color:#fff;}
+.queue-textarea{width:100%;height:250px;background:#1a1a1a;border:1px solid #333;borderRadius:6px;padding:15px;color:#fff;fontFamily:monospace;marginBottom:30px;}
+.btn{padding:10px 20px;border:none;borderRadius:6px;fontSize:13px;fontWeight:600;cursor:pointer;}
+.btn-primary{background:#84cc16;color:#000;}
+.btn-secondary{background:#333;color:#fff;}
+.btn-tertiary{background:transparent;color:#888;border:1px solid #444;}
