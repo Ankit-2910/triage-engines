@@ -21,6 +21,7 @@ function App() {
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [results, setResults] = useState(null);
   const [isDragging, setIsDragging] = useState(false);
+  const [error, setError] = useState(null);
   const fileInputRef = useRef(null);
 
   const countTickets = (text) => {
@@ -35,23 +36,42 @@ function App() {
     setResults(null);
   };
 
-  const handleRunTriage = () => {
+  const handleRunTriage = async () => {
     if (!queue.trim()) return;
     setIsAnalyzing(true);
     setResults(null);
-    setTimeout(() => {
-      const items = queue.split(/\n---\n|\n\n+/).map(t => t.trim()).filter(Boolean);
-      const priorities = ['Critical', 'High', 'Medium', 'Low'];
-      const routes = ['Engineering', 'Billing', 'Product', 'Support Tier 2'];
-      const analyzed = items.map((text, i) => ({
-        id: i,
-        text: text.length > 90 ? text.slice(0, 90) + '...' : text,
-        priority: priorities[i % priorities.length],
-        route: routes[i % routes.length]
-      }));
-      setResults(analyzed);
+    setError(null);
+    const items = queue.split(/\n---\n|\n\n+/).map(t => t.trim()).filter(Boolean);
+    try {
+      const prompt = `You are an ops-inbox triage assistant. Classify each numbered support ticket below by priority and route it to the right team. Return ONLY valid JSON (no markdown fences), an array matching exactly this shape:
+[{"id": <ticket number from the list>, "priority": "Critical"|"High"|"Medium"|"Low", "route": "Engineering"|"Billing"|"Product"|"Support Tier 2"}]
+Return exactly one entry per ticket, in the same order.
+
+Tickets:
+${items.map((t, i) => `${i}. ${t}`).join('\n\n')}`;
+      const res = await fetch('/api/triage', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Triage failed');
+      const parsed = JSON.parse(data.text);
+      const merged = parsed.map((r) => {
+        const text = items[r.id] ?? '';
+        return {
+          id: r.id,
+          text: text.length > 90 ? text.slice(0, 90) + '...' : text,
+          priority: r.priority,
+          route: r.route,
+        };
+      });
+      setResults(merged);
+    } catch (e) {
+      setError(e.message || 'Something went wrong triaging this queue.');
+    } finally {
       setIsAnalyzing(false);
-    }, 1400);
+    }
   };
 
   const handleLoadSample = () => {
@@ -160,6 +180,12 @@ function App() {
           </button>
           <div className="te-count">{tickets} ticket{tickets === 1 ? '' : 's'} detected</div>
         </section>
+
+        {error && (
+          <section className="te-results">
+            <div className="te-result-text" style={{ color: '#ef4444' }}>⚠ {error}</div>
+          </section>
+        )}
 
         {results && (
           <section className="te-results">
